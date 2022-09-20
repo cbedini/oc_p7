@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import gc
 import time
+import re
 from contextlib import contextmanager
 from lightgbm import LGBMClassifier
 from sklearn.metrics import roc_auc_score, roc_curve
@@ -47,7 +48,7 @@ def one_hot_encoder(df, nan_as_category = True):
 def application_train_test(num_rows = None, nan_as_category = False):
     # Read data and merge
     df = pd.read_csv('application_train.csv', nrows= num_rows)
-    test_df = pd.read_csv('input/application_test.csv', nrows= num_rows)
+    test_df = pd.read_csv('application_test.csv', nrows= num_rows)
     print("Train samples: {}, test samples: {}".format(len(df), len(test_df)))
     df = df.append(test_df).reset_index()
     # Optional: Remove 4 applications with XNA CODE_GENDER (train set)
@@ -269,7 +270,7 @@ def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
 
         # LightGBM parameters found by Bayesian optimization
         clf = LGBMClassifier(
-            nthread=4,
+           # nthread=4,
             n_estimators=10000,
             learning_rate=0.02,
             num_leaves=34,
@@ -280,8 +281,7 @@ def kfold_lightgbm(df, num_folds, stratified = False, debug= False):
             reg_lambda=0.0735294,
             min_split_gain=0.0222415,
             min_child_weight=39.3259775,
-            silent=-1,
-            verbose=-1, )
+            )
 
         clf.fit(train_x, train_y, eval_set=[(train_x, train_y), (valid_x, valid_y)], 
             eval_metric= 'auc', verbose= 200, early_stopping_rounds= 200)
@@ -350,6 +350,10 @@ def main(debug = False):
         df = df.join(cc, how='left', on='SK_ID_CURR')
         del cc
         gc.collect()
+        print(df.columns)
+
+    df = df.rename(columns = lambda x:re.sub('[^A-Za-z0-9_]+', '', x))
+
     with timer("Run LightGBM with kfold"):
         feat_importance = kfold_lightgbm(df, num_folds= 10, stratified= False, debug= debug)
         
