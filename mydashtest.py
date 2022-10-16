@@ -24,10 +24,6 @@ import plotly.figure_factory as ff
 
 import matplotlib.pyplot as plt, mpld3
 
-from sklearn.metrics import confusion_matrix
-from sklearn.pipeline import Pipeline
-from sklearn.neighbors import NearestNeighbors
-from sklearn.impute import KNNImputer
 
 import joblib
 #import mlflow.sklearn
@@ -38,12 +34,16 @@ from textwrap import wrap
 from flask import Flask
 from operator import itemgetter
 import os
-
+import requests
+import json
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 #heroku
 server=app.server
+
+DATA='http://127.0.0.1:8080/data'
+
 
 @contextmanager
 def timer(title):
@@ -363,6 +363,13 @@ content_first_row_tab4 = dbc.Row(
     ]
 )
 
+content_second_row_tab4 = dbc.Row(
+    [   dbc.Col(
+            dcc.Graph(id='graph_5'), md=12,
+        )
+    ]
+)
+
 
     
 ### content    
@@ -399,6 +406,7 @@ content = html.Div(
                 html.H2('Prêt à dépenser', style=TEXT_STYLE),
                 html.Hr(),
                 content_first_row_tab4,
+                content_second_row_tab4,
             ])
         ])
     ],
@@ -407,7 +415,6 @@ content = html.Div(
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.layout = html.Div([sidebar, content])
-
 
 
 
@@ -646,13 +653,13 @@ def update_table_1(n_clicks, dropdown_value, slider_value):
      ])
     
 def update_table_2(n_clicks, dropdown_value, radio_items_value):
-    print('Table di merda',n_clicks, dropdown_value, radio_items_value )
-    table_data=cosmetic_apptest[cosmetic_apptest['SK_ID_CURR']==dropdown_value].iloc[: , :5]
-
+    print('Table dummy',n_clicks, dropdown_value, radio_items_value )
+    response=requests.get(DATA)
+    content = json.loads(response.content.decode('utf-8'))
     return html.Div(
         [   html.H3("Paramètres Client"),
             dash_table.DataTable(
-                data=table_data.to_dict("records"),
+                data=content,
                 style_as_list_view=True,
                 style_cell={'padding': '5px','textAlign': 'left', 'backgroundColor': 'whitesmoke',},
                 style_header={
@@ -662,6 +669,53 @@ def update_table_2(n_clicks, dropdown_value, radio_items_value):
                 
             )
         ])
+
+
+#tab4    
+@app.callback(
+    Output('graph_5', 'figure'),
+    [Input('submit_button', 'n_clicks')],
+    [State('dropdown', 'value'), State('radio_items', 'value')
+     ])
+def update_graph_5(n_clicks, dropdown_value, radio_items_value):
+    print('Neighbours graph',n_clicks, dropdown_value, radio_items_value )
+    response=requests.get(DATA)
+    content = json.loads(response.content.decode('utf-8'))
+    if dropdown_value:
+        df=pd.json_normalize(content)
+        fig = go.Figure()
+        # Use x instead of y argument for horizontal plot
+        for col in df.columns:
+            fig.add_trace(go.Box(x=df[col], name=col,
+                          boxpoints='all', # can also be outliers, or suspectedoutliers, or False
+                          jitter=0.3, # add some jitter for a better separation between points
+                          pointpos=-1.8 # relative position of points wrt box
+                          ))
+            fig.update_layout(
+                autosize=False,
+                width=1000,
+                height=800)
+
+        return fig
+    else:
+        return {"layout": {
+            "xaxis": {
+                "visible": False
+            },
+            "yaxis": {
+                "visible": False
+            },
+            "annotations": [
+                {
+                "text": "Choisir un client ID",
+                "xref": "paper",
+                "yref": "paper",
+                "showarrow": False,
+                "font": {
+                    "size": 28
+                }}]}}
+
+
 
 def kvoisins(nn,Xnbs,X):
     nnbs = NearestNeighbors(n_neighbors=nn, algorithm='ball_tree').fit(Xnbs)
