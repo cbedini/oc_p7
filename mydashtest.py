@@ -96,18 +96,18 @@ df=readdf()
 apptrain, X, cosmetic_apptrain, target, apptest, cosmetic_apptest = prepare_train_df(df)
 imputed= pd.read_csv("imputed.csv")
 print("Shape IMPUTED", imputed.shape)
-print('Loading model')
-#Loading the saved model with joblib
-reloaded = joblib.load('lightgbmodel.joblib')
-print('Loaded')
+# print('Loading model')
+# #Loading the saved model with joblib
+# reloaded = joblib.load('lightgbmodel.joblib')
+# print('Loaded')
 
 # Outils
 
-# Load explainer
+# Load explainer -> API
 #quick and dirty pour eviter Error https://stackoverflow.com/questions/71187653/the-passed-model-is-not-callable-and-cannot-be-analyzed-directly-with-the-given
-def explain():   
-    return shap.Explainer(reloaded)
-explainer = explain()
+# def explain():   
+#     return shap.Explainer(reloaded)
+# explainer = explain()
 
 
 
@@ -346,10 +346,10 @@ content_second_row_tab3 = dbc.Row(
 
 
     
-content_fourth_row_tab3 = dbc.Row(
-    [   html.Div(id='output-shap')
-    ]
-)
+# content_fourth_row_tab3 = dbc.Row(
+#     [   html.Div(id='output-shap')
+#     ]
+# )
 
 content_fifth_row_tab3 = dbc.Row(
     [   html.Div(id='api-shap')
@@ -420,7 +420,7 @@ content = html.Div(
                 content_first_row_tab3,
                 content_second_row_tab3,
 #                content_third_row_tab3,
-                content_fourth_row_tab3,
+#                content_fourth_row_tab3,
                 content_fifth_row_tab3
             ]),
 
@@ -477,21 +477,21 @@ def update_graph_2(n_clicks):
 
 
 #tab3
-@app.callback(Output('output-shap', 'children'), #Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'srcDoc'), #Output('shap_waterfall', 'src'), 
-    [Input('submit_button', 'n_clicks')],
-    [State('dropdown', 'value'), 
-     State('slider', 'value')],
-    prevent_initial_call=True)
-def update_shap_figures(n_clicks, dropdown_value, slider_value):  
-    print("shap js et fig",n_clicks)
-    print("shap SLIDER",slider_value)
-    data_for_prediction=apptest[apptest['SK_ID_CURR']==dropdown_value]
-    data_for_prediction=data_for_prediction.iloc[:,1:]
-    data_for_prediction_array = data_for_prediction.values.reshape(1, -1)
-    shap_val = explainer.shap_values(data_for_prediction_array)
-        # visualize the first prediction's explanation
-    forceplot=shap.force_plot(explainer.expected_value[0], shap_val[0], data_for_prediction)
-    shap_html = f"<head>{shap.getjs()}</head><body>{forceplot.html()}</body>"
+# @app.callback(Output('output-shap', 'children'), #Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'srcDoc'), #Output('shap_waterfall', 'src'), 
+#     [Input('submit_button', 'n_clicks')],
+#     [State('dropdown', 'value'), 
+#      State('slider', 'value')],
+#     prevent_initial_call=True)
+# def update_shap_figures(n_clicks, dropdown_value, slider_value):  
+#     print("shap js et fig",n_clicks)
+#     print("shap SLIDER",slider_value)
+#     data_for_prediction=apptest[apptest['SK_ID_CURR']==dropdown_value]
+#     data_for_prediction=data_for_prediction.iloc[:,1:]
+#     data_for_prediction_array = data_for_prediction.values.reshape(1, -1)
+#     shap_val = explainer.shap_values(data_for_prediction_array)
+#         # visualize the first prediction's explanation
+#     forceplot=shap.force_plot(explainer.expected_value[0], shap_val[0], data_for_prediction)
+#     shap_html = f"<head>{shap.getjs()}</head><body>{forceplot.html()}</body>"
     # end forceplot
     # plot waterfall
     #tentatives avortees d'utiliser shap.plot
@@ -526,8 +526,8 @@ def update_shap_figures(n_clicks, dropdown_value, slider_value):
     #height=500,) 
 
     
-    return html.Iframe(srcDoc=shap_html,
-     style={"width": "100%", "height": "200px", "border": 0})#, fig
+    # return html.Iframe(srcDoc=shap_html,
+    #  style={"width": "100%", "height": "200px", "border": 0})#, fig
     #, fig #app.get_asset_url(waterfall)
 
     
