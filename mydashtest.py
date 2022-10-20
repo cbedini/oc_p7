@@ -8,8 +8,6 @@ Created on Sat Oct  8 20:25:33 2022
 
 import numpy as np
 import pandas as pd
-import time
-import re
 
 import dash
 from dash import dcc, html, dash_table
@@ -23,6 +21,8 @@ import plotly.figure_factory as ff
 
 import matplotlib.pyplot as plt, mpld3
 
+from sklearn.impute import KNNImputer
+from sklearn.neighbors import NearestNeighbors
 
 import joblib
 #import mlflow.sklearn
@@ -31,9 +31,10 @@ import shap
 
 from flask import Flask
 from operator import itemgetter
-import os
+import os.path
 import requests
 import json
+
 
 app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -42,9 +43,9 @@ server=app.server
 
 
 #url endpoints
-DATA='http://127.0.0.1:8080/data'
+PREDICT_PROBA='http://127.0.0.1:8080/predict_proba'
 
-PREDICT_PROBA='https://firsttestwith.herokuapp.com/predict_proba'
+#PREDICT_PROBA='https://firsttestwith.herokuapp.com/predict_proba'
 
 SHAP='http://127.0.0.1:8080/shap'
 
@@ -56,21 +57,21 @@ def readdf(debug=False):
     print("Shape",df.shape)
     return df
 
-def gender(X):
-    X['CODE_GENDER'] = X['CODE_GENDER'].astype(str)
+def gender(df):
+    df['CODE_GENDER'] = df['CODE_GENDER'].astype(str)
 
-    X=X.replace({
+    df=df.replace({
         'CODE_GENDER': {
             '0': 'homme',
             '1': 'femme',        
         }
     })
-    return X
+    return df
 
-def years(X):
-    X['DAYS_BIRTH'] = X['DAYS_BIRTH']//365*-1
-    X['DAYS_EMPLOYED'] = X['DAYS_EMPLOYED']//365*-1
-    return X
+def years(df):
+    df['DAYS_BIRTH'] = df['DAYS_BIRTH']//365*-1
+    df['DAYS_EMPLOYED'] = df['DAYS_EMPLOYED']//365*-1
+    return df
 
 def cosmetics(df):
     df=gender(df)
@@ -82,18 +83,19 @@ def prepare_train_df(df):
     test_df = df[df['TARGET'].isnull()]
     feats = [f for f in train_df.columns if f not in ['SK_ID_BUREAU','SK_ID_PREV','index']]
     test_feats = [f for f in train_df.columns if f not in ['TARGET','SK_ID_BUREAU','SK_ID_PREV','index']]
-    X, target, apptest = train_df[feats], train_df[['SK_ID_CURR','TARGET']], test_df[test_feats]
-    print('Training dataframe shape:', X.shape)
+    apptrain, X, target, apptest = train_df[feats], train_df[test_feats], train_df[['SK_ID_CURR','TARGET']], test_df[test_feats]
+    print('Training dataframe shape:', apptrain.shape, X.shape)
     print('Test shape:', apptest.shape)
-    cosmeticX = X.copy()
-    cosmeticX =cosmetics(cosmeticX)
+    cosmetic_apptrain = apptrain.copy()
+    cosmetic_apptrain =cosmetics(cosmetic_apptrain)
     cosmetic_apptest= apptest.copy()
     cosmetic_apptest= cosmetics(cosmetic_apptest)
-    return X, cosmeticX, target, apptest, cosmetic_apptest
+    return apptrain,X, cosmetic_apptrain, target, apptest, cosmetic_apptest
 
 df=readdf()
-X, cosmeticX, target, apptest, cosmetic_apptest = prepare_train_df(df)
-
+apptrain, X, cosmetic_apptrain, target, apptest, cosmetic_apptest = prepare_train_df(df)
+imputed= pd.read_csv("imputed.csv")
+print("Shape IMPUTED", imputed.shape)
 print('Loading model')
 #Loading the saved model with joblib
 reloaded = joblib.load('lightgbmodel.joblib')
@@ -108,7 +110,6 @@ def explain():
 explainer = explain()
 
 
-# cosmetic
 
 
 
@@ -154,7 +155,7 @@ controls = dbc.Row(
         html.P('Plus de graphes...', style={
             'textAlign': 'center'
         }),
-        dcc.Dropdown(X.columns[2:],
+        dcc.Dropdown(apptrain.columns[2:],
             id='dropdown_s1',
             multi=False
         )
@@ -327,7 +328,6 @@ content_second_row_tab3 = dbc.Row(
             [   html.P(style={'margin-top': '40px'}),
                 html.Div(id='table_1')
     ]
-         #dcc.Graph(id='graph_6'), md=6
         ),
         dbc.Col(
             daq.Gauge(id='my-gauge-1',
@@ -361,7 +361,7 @@ content_fifth_row_tab3 = dbc.Row(
 #         )
 #     ]
 # )
-#temp
+
 #    dbc.Col(
 #         dbc.Card(
 #             [
@@ -378,10 +378,6 @@ content_fifth_row_tab3 = dbc.Row(
 #     )
 # )
     
-
-
-
-
 
 
 content_first_row_tab4 = dbc.Row(
@@ -451,7 +447,7 @@ app.layout = html.Div([sidebar, content])
     )
 def update_graph_1(n_clicks):
     print("graph_1",n_clicks)
-    df = cosmeticX
+    df = cosmetic_apptrain
     fig = px.histogram(
         df, x='DAYS_BIRTH', color="TARGET",
         title="Solvabilité par age",
@@ -469,7 +465,7 @@ def update_graph_1(n_clicks):
     [Input('submit_button', 'n_clicks')])
 def update_graph_2(n_clicks):
     print("graph_2",n_clicks)
-    df=cosmeticX
+    df=cosmetic_apptrain
     fig = px.histogram(df, x="CODE_GENDER", color='TARGET',
                 title="Solvabilité par genre",
                 labels={ # replaces default labels by column name
@@ -481,7 +477,6 @@ def update_graph_2(n_clicks):
 
 
 #tab3
-# multiple output shap
 @app.callback(Output('output-shap', 'children'), #Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'figure'),#Output('shap_waterfall', 'srcDoc'), #Output('shap_waterfall', 'src'), 
     [Input('submit_button', 'n_clicks')],
     [State('dropdown', 'value'), 
@@ -493,8 +488,6 @@ def update_shap_figures(n_clicks, dropdown_value, slider_value):
     data_for_prediction=apptest[apptest['SK_ID_CURR']==dropdown_value]
     data_for_prediction=data_for_prediction.iloc[:,1:]
     data_for_prediction_array = data_for_prediction.values.reshape(1, -1)
-    #explainer = shap.Explainer(reloaded) # global
-        # Calculate Shap values
     shap_val = explainer.shap_values(data_for_prediction_array)
         # visualize the first prediction's explanation
     forceplot=shap.force_plot(explainer.expected_value[0], shap_val[0], data_for_prediction)
@@ -547,7 +540,7 @@ def update_graph_4(n_clicks, dropdown_s1_value):
     print("graph_4",n_clicks)
     print(dropdown_s1_value)
     if dropdown_s1_value:
-        df=cosmeticX
+        df=cosmetic_apptrain
         fig = px.histogram(df, x=dropdown_s1_value, color='TARGET',
                     labels={ # replaces default labels by column name
                     "TARGET": "Solvabilité"},
@@ -573,13 +566,13 @@ def update_graph_4(n_clicks, dropdown_s1_value):
 
 
 
-#tab3 card available
+#tab3 
 @app.callback(
     Output('pie_graph', 'figure'),
     [Input('submit_button', 'n_clicks')])
 def update_pie_graph(n_clicks):
     print("pie",n_clicks)
-    target_values = X['TARGET'].value_counts()
+    target_values = apptrain['TARGET'].value_counts()
     colors = ["#26A65B", "red"]
     fig = go.Figure(data=[go.Pie(labels=["Solvable", "Non Solvable"],
                              textinfo='label+percent',
@@ -625,7 +618,7 @@ def update_card_text_2(n_clicks, slider_value):
 
 
 #tab3
-# Output pour gauge e card
+# Multiple Output pour gauge e card
 @app.callback(Output('my-gauge-1', 'value'), 
               Output('card_text_3', 'children'), 
               Output('card_text_4', 'children'),
@@ -728,62 +721,102 @@ def update_table_1(n_clicks, dropdown_value, slider_value):
 
 
 #tab4
-@app.callback(
-    Output('table_2', 'children'),
-    [Input('submit_button', 'n_clicks')],
-    [State('dropdown', 'value'), State('radio_items', 'value'),
-     State('slider', 'value')],
-       prevent_initial_call=True)
-def update_table_2(n_clicks, dropdown_value, radio_items_value, slider_value):
-    riv=int(radio_items_value)
-    content=X.iloc[:riv,:slider_value]
-    print('client',)
-#    response=requests.get(DATA)
-#    content = json.loads(response.content.decode('utf-8'))
-    return html.Div(
-        [   html.H3("Paramètres Client"),
-            dash_table.DataTable(
-                data=content.to_dict('records'),
-                style_as_list_view=True,
-                style_cell={'padding': '5px','textAlign': 'left', 'backgroundColor': 'whitesmoke',},
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                },
+# @app.callback(
+#     Output('table_2', 'children'),
+#     [Input('submit_button', 'n_clicks')],
+#     [State('dropdown', 'value'), State('radio_items', 'value'),
+#      State('slider', 'value')],
+#        prevent_initial_call=True)
+# def update_table_2(n_clicks, dropdown_value, radio_items_value, slider_value):
+#     riv=int(radio_items_value)
+#     content=X.iloc[:riv,:slider_value]
+#     print('client',)
+#     return html.Div(
+#         [   html.H3("Paramètres Client"),
+#             dash_table.DataTable(
+#                 data=content.to_dict('records'),
+#                 style_as_list_view=True,
+#                 style_cell={'padding': '5px','textAlign': 'left', 'backgroundColor': 'whitesmoke',},
+#                 style_header={
+#                     'backgroundColor': 'white',
+#                     'fontWeight': 'bold'
+#                 },
                 
-            )
-        ])
+#             )
+#         ])
 
 
-#tab4    
+#tab4    Multiple Neighbours
 @app.callback(
-    Output('graph_5', 'figure'),
+    Output('graph_5', 'figure'), Output('table_2', 'children'),
     [Input('submit_button', 'n_clicks')],
     [State('dropdown', 'value'), State('radio_items', 'value'),
      State('slider', 'value')])
 def update_graph_5(n_clicks, dropdown_value, radio_items_value, slider_value):
-    riv=int(radio_items_value)
-    df=X.iloc[:riv,:slider_value]
+    riv=int(radio_items_value)+1
     if dropdown_value:
-        #df=pd.json_normalize(content)
-        client=apptest[apptest['SK_ID_CURR']==dropdown_value].iloc[:,1:]
-        dclient=client.iloc[:,:slider_value]
+        #Nearest neighbors
+        imp=imputed.iloc[:,3:] #imputed dataframe
+        client=apptest[apptest['SK_ID_CURR']==dropdown_value].iloc[:,1:] #nouveau client
+        voisins=pd.concat([client,imp]) # tous les voisins
+        imp_voisins = pd.DataFrame(KNNImputer().fit_transform(voisins),
+                           columns=voisins.columns,
+                           index=voisins.index) #imputation pour le nouveau voisin
+        nnbs = NearestNeighbors(n_neighbors=riv, algorithm='ball_tree').fit(imp_voisins)
+        distances, indices = nnbs.kneighbors(imp_voisins[:1]) # les voisins du nouveau client
+        voisins=imp_voisins.iloc[indices.flatten()]
+        #nombre de feature a montrer
+        fvoisins=voisins.iloc[:,:slider_value]
+        #table 2
+        table=html.Div(
+            [   html.H3("Paramètres Client"),
+                dash_table.DataTable(
+                    data=fvoisins.to_dict('records'),
+                    style_as_list_view=True,
+                    style_cell={'padding': '5px','textAlign': 'left', 'backgroundColor': 'whitesmoke',},
+                    style_header={
+                        'backgroundColor': 'white',
+                        'fontWeight': 'bold'
+                    },
+                    style_data_conditional=[
+                        {
+                            'if': {
+                                'row_index': 0,
+                                 },
+                            'backgroundColor': '#C9E9FD',
+                            'color': 'MediumPurple'
+                            }]
+                    
+                )
+            ])
+        # graph
         fig = go.Figure()
-        # Use x instead of y argument for horizontal plot
-        for col in df.columns:
-            fig.add_trace(go.Box(x=df[col], name=col,
+        for col in fvoisins.columns:
+            fig.add_trace(go.Box(x=fvoisins[col], name=col,
                           boxpoints='all', # can also be outliers, or suspectedoutliers, or False
                           jitter=0.3, # add some jitter for a better separation between points
                           pointpos=-1.8 # relative position of points wrt box
                           ))
-            #fig.add_trace(go.Scatter(x=dclient[col].iloc[0], y=0, mode='markers', marker_color='black'))
+            fig.add_trace(go.Scatter(x=fvoisins[col].iloc[:1], y=[col]*len(fvoisins[col]), name=col, mode='markers', 
+                                     marker=dict(
+                                         color='LightSkyBlue',
+                                         size=20,
+                                         opacity=0.5,
+                                         line=dict(
+                                             color='MediumPurple',
+                                             width=2
+                                             )
+                                         )
+
+                                     ))
 
             fig.update_layout(
                 autosize=False,
                 width=1000,
                 height=800)
 
-        return fig
+        
+        return fig, table
     else:
         return {"layout": {
             "xaxis": {
@@ -800,7 +833,7 @@ def update_graph_5(n_clicks, dropdown_value, radio_items_value, slider_value):
                 "showarrow": False,
                 "font": {
                     "size": 28
-                }}]}}
+                }}]}}, ""
 
 
 
