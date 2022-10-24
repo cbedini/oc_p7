@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt, mpld3
 from sklearn.impute import KNNImputer
 from sklearn.neighbors import NearestNeighbors
 
-import joblib
+#import joblib
 #import mlflow.sklearn
 
 import shap
@@ -43,15 +43,16 @@ server=app.server
 
 
 #url endpoints
-PREDICT_PROBA='http://127.0.0.1:8080/predict_proba'
+#PREDICT_PROBA='http://127.0.0.1:8080/predict_proba'
 
-#PREDICT_PROBA='https://firsttestwith.herokuapp.com/predict_proba'
+PREDICT_PROBA='https://firsttestwith.herokuapp.com/predict_proba'
 
-SHAP='http://127.0.0.1:8080/shap'
+#SHAP='http://127.0.0.1:8080/shap'
 
+SHAP='https://firsttestwith.herokuapp.com/shap'
 
 def readdf(debug=False):
-    savedataframe = "debugdataframe.csv" if debug else "apidataframe.csv"
+    savedataframe = "dashsample.csv" if debug else "apidataframe.csv"
     df = pd.read_csv(savedataframe)
     print("Reading",savedataframe)
     print("Shape",df.shape)
@@ -68,14 +69,9 @@ def gender(df):
     })
     return df
 
-def years(df):
-    df['DAYS_BIRTH'] = df['DAYS_BIRTH']//365*-1
-    df['DAYS_EMPLOYED'] = df['DAYS_EMPLOYED']//365*-1
-    return df
 
 def cosmetics(df):
     df=gender(df)
-    df=years(df)
     return df
 
 def prepare_train_df(df):
@@ -92,31 +88,13 @@ def prepare_train_df(df):
     cosmetic_apptest= cosmetics(cosmetic_apptest)
     return apptrain,X, cosmetic_apptrain, target, apptest, cosmetic_apptest
 
-df=readdf()
+df=readdf(True)
 apptrain, X, cosmetic_apptrain, target, apptest, cosmetic_apptest = prepare_train_df(df)
 imputed= pd.read_csv("imputed.csv")
 print("Shape IMPUTED", imputed.shape)
-# print('Loading model')
-# #Loading the saved model with joblib
-# reloaded = joblib.load('lightgbmodel.joblib')
-# print('Loaded')
-
-# Outils
-
-# Load explainer -> API
-#quick and dirty pour eviter Error https://stackoverflow.com/questions/71187653/the-passed-model-is-not-callable-and-cannot-be-analyzed-directly-with-the-given
-# def explain():   
-#     return shap.Explainer(reloaded)
-# explainer = explain()
-
-
-
 
 
 ###### app
-
-
-
 
 
 # the style arguments for the sidebar.
@@ -678,7 +656,9 @@ def update_shap_api(n_clicks, dropdown_value, slider_value):
     response = requests.post(url,sending)
     content = json.loads(response.content.decode('utf-8')) 
     explainer_expected_value_0=content[0]
-    shap_val_0=np.asarray(content[1]).reshape(1,-1)
+    #shap_val_0=np.asarray(content[1]).reshape(1,-1)
+    shap_val_0=np.array(content[1]).reshape(1, -1)
+
     forceplot=shap.force_plot(explainer_expected_value_0, shap_val_0, data_for_prediction, plot_cmap=["#26A65B","#FF0000"])
     shap_html = f"<head>{shap.getjs()}</head><body>{forceplot.html()}</body>"   
     return html.Iframe(srcDoc=shap_html,

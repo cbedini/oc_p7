@@ -40,7 +40,7 @@ def shap():
     # valeurs pour le forceplot
     a_float=explainer.expected_value[0]
     an_array=shap_val[0]
-    response=[a_float,an_array.tolist()[0]]
+    response=json.dumps([a_float,an_array.tolist()[0]])
     return response
     
 
