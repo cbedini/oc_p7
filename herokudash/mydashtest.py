@@ -29,7 +29,7 @@ import requests
 import json
 
 
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(__name__,external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 #heroku
 server=app.server
@@ -66,6 +66,18 @@ df=readdf(True)
 apptrain, apptest = prepare_train_df(df)
 imputed= pd.read_csv("imputed.csv")
 print("Shape IMPUTED", imputed.shape)
+
+importance=['PAYMENT_RATE', 'EXT_SOURCES_WEIGHTED', 'CREDIT_PRICE_DIFF', 'Inst_DPD_MEAN',
+            'Inst_AMT_PAYMENT_SUM', 'APPROVED_CNT_PAYMENT_SUM', 'Buro_ACTIVE_DEBT_CREDIT_DIFF_SUM',
+            'DAYS_BIRTH', 'AMT_CREDIT', 'DAYS_EMPLOYED', 'Cc_AMT_BALANCE_MEAN',
+            'Buro_ACTIVE_AMT_CREDIT_SUM_LIMIT_MEAN', 'DAYS_ID_PUBLISH',
+            'POS_COUNT', 'Cc_CNT_DRAWINGS_CURRENT_MEAN', 'OWN_CAR_AGE',
+            'Prev_APPLICATION_CREDIT_DIFF_SUM', 'Buro_ACTIVE_CREDIT_DURATION_MEAN',
+            'Pos_MONTHS_BALANCE_MEAN', 'Buro_CLOSED_CREDIT_DURATION_MEAN',
+            'Pos_SK_DPD_DEF_MEAN', 'Prev_CNT_PAYMENT_SUM', 'ANNUITY_INCOME_RATIO',
+            'Buro_ACTIVE_DAYS_CREDIT_UPDATE_MEAN', 'REGION_POPULATION_RELATIVE',
+            'APARTMENTS_AVG', 'DAYS_REGISTRATION', 'Prev_DAYS_DECISION_MEAN',
+            'APPROVED_DAYS_DECISION_MEAN', 'Buro_CLOSED_DAYS_CREDIT_UPDATE_MEAN']
 
 
 ###### app
@@ -653,8 +665,9 @@ def update_shap_api(n_clicks, dropdown_value, slider_value):
     [State('dropdown', 'value'), State('slider', 'value')
      ])
 def update_table_1(n_clicks, dropdown_value, slider_value):
-    print('Table',n_clicks, dropdown_value, slider_value )    
-    table_data=apptest[apptest['SK_ID_CURR']==dropdown_value].iloc[: , :slider_value].T.reset_index()
+    print('Table',n_clicks, dropdown_value, slider_value )
+    table_data=apptest[apptest['SK_ID_CURR']==dropdown_value]
+    table_data=table_data[importance].iloc[: , :slider_value].T.reset_index()
     if len(table_data.columns)>1:
         table_data.rename(columns={table_data.columns[1]: "value" }, inplace = True)
 
@@ -720,7 +733,7 @@ def update_graph_5(n_clicks, dropdown_value, radio_items_value, slider_value):
         distances, indices = nnbs.kneighbors(imp_voisins[:1]) # les voisins du nouveau client
         voisins=imp_voisins.iloc[indices.flatten()]
         #nombre de feature a montrer
-        fvoisins=voisins.iloc[:,:slider_value]
+        fvoisins=voisins[importance].iloc[:,:slider_value]
         #table 2
         table=html.Div(
             [   html.H3("Paramètres Client"),
