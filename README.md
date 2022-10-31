@@ -7,7 +7,7 @@ Le code de la modélisation (du prétraitement à la prédiction)
 1. https://github.com/cbedini/oc_p7/blob/main/Notebook_1_preprocessing.ipynb
 2. https://github.com/cbedini/oc_p7/blob/main/Notebook_2_models.ipynb
 3. https://github.com/cbedini/oc_p7/blob/main/Notebook_3_hyperparameters.ipynb
-4. in progress
+4. https://github.com/cbedini/oc_p7/blob/main/Notebook_4_hyperparameters-banking.ipynb
 
 Le code générant le dashboard
 
