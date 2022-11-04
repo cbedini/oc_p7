@@ -206,7 +206,7 @@ content_first_row_tab3 = dbc.Row([
 
                 dbc.CardBody(
                     [
-                        html.H4('#Features', className='card-title', style=CARD_TEXT_STYLE),
+                        html.H4('Recommandation', className='card-title', style=CARD_TEXT_STYLE),
                         html.P(id='card_text_2', children=['Sample text.'], style=CARD_TEXT_STYLE),
                     ]
                 ),
@@ -296,8 +296,9 @@ content_second_row_tab3 = dbc.Row(
         dbc.Col(
             daq.Gauge(id='my-gauge-1',
                 label="          ",
-                color={"gradient":True,"ranges":{"red":[0,0.4],"yellow":[0.4,0.5],"#26A65B":[0.5,1]}},
-                value=0.1,
+                scale={'start': 0, 'interval': 0.05, 'labelInterval': 2},
+                color={"gradient":True,"ranges":{"red":[0,0.75],"yellow":[0.75,0.85],"#26A65B":[0.85,1]}},
+                value=0.5,
                 max=1,
                 min=0,
                 showCurrentValue=True,
@@ -569,15 +570,15 @@ def update_card_text_1(n_clicks, dropdown_value):
     return dropdown_value
 
 #tab3 card
-@app.callback(
-    Output('card_text_2', 'children'),
-    [Input('submit_button', 'n_clicks')],
-    [State('slider', 'value')
-     ])
-def update_card_text_2(n_clicks, slider_value):
-    print(n_clicks)
-    print(slider_value)
-    return slider_value
+#@app.callback(
+#    Output('card_text_2', 'children'),
+#    [Input('submit_button', 'n_clicks')],
+#    [State('slider', 'value')
+#     ])
+#def update_card_text_2(n_clicks, slider_value):
+#    print(n_clicks)
+#    print(slider_value)
+#    return slider_value
 
 
 
@@ -586,6 +587,7 @@ def update_card_text_2(n_clicks, slider_value):
 @app.callback(Output('my-gauge-1', 'value'), 
               Output('card_text_3', 'children'), 
               Output('card_text_4', 'children'),
+              Output('card_text_2', 'children'),
             [Input('submit_button', 'n_clicks')],
             [State('dropdown', 'value')
              ])
@@ -598,10 +600,11 @@ def update_gauge_card(n_clicks, dropdown_value):
         sending=json.dumps(data_for_prediction_array.tolist()[0])
         url = PREDICT_PROBA
         response = requests.post(url,sending)
-        content = json.loads(response.content.decode('utf-8')) 
-        return content[0], content[0], content[1]
+        content = json.loads(response.content.decode('utf-8'))
+        solvable= 'Insolvable' if content[1]>=0.15 else 'Solvable'
+        return content[0], content[0], content[1], solvable
     else: 
-        return 0.5, "", ""
+        return 0.5, "", "", ""
 
 
 
