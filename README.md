@@ -1,6 +1,10 @@
 # oc_p7
 outil de “scoring crédit” pour calculer la probabilité qu’un client rembourse son crédit
 
+https://openclassrooms.com/fr/paths/164/projects/632/assignment
+
+Données
+
 https://www.kaggle.com/c/home-credit-default-risk/data
 
 Le code de la modélisation (du prétraitement à la prédiction)
